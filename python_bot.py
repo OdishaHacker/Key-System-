@@ -35,7 +35,7 @@ def getkey(update, context):
     user_id = str(update.effective_user.id)
     active_users.add(user_id)
     key_info = check_and_get_key(user_id)
-    reply = f"🔑 Your 24H Key:\n{key_info['key']}\n\n⏰ Expires At (UTC): {key_info['expire_time']}"
+    reply = f"🔑 Your 24H Key:\n`{key_info['key']}`\n\n⏰ Expire At (UTC): {key_info['expire_time']}"
     update.message.reply_text(reply, parse_mode="Markdown")
 
 def start(update, context):
