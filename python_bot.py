@@ -47,15 +47,68 @@ def start(update, context):
 # Admin command: view all keys
 def allkeys(update, context):
     if update.effective_user.id != ADMIN_ID:
-        update.message.reply_text("❌ You are not authorized to use this command.")
+        update.message.reply_text("❌ Tumhe is command ko use karne ka permission nahi hai.")
         return
     if not user_keys:
-        update.message.reply_text("⚠️ No active keys found.")
+        update.message.reply_text("⚠️ Koi active keys nahi hain.")
         return
-    text = "📋 *All Active Keys:*\n\n"
+    text = "📋 *Saare Active Keys:*\n\n"
     for uid, info in user_keys.items():
         text += f"👤 User: {uid}\n🔑 {info['key']}\n⏰ {info['expire_time']}\n\n"
     update.message.reply_text(text, parse_mode="Markdown")
+
+# New Admin command: extend key duration
+def extendkey(update, context):
+    if update.effective_user.id != ADMIN_ID:
+        update.message.reply_text("❌ Tumhe is command ko use karne ka permission nahi hai.")
+        return
+    try:
+        args = context.args
+        if len(args) != 2:
+            update.message.reply_text("⚠️ Use karne ka tarika: /extendkey <user_id> <hours>")
+            return
+        user_id, hours = args
+        hours = int(hours)
+        if user_id not in user_keys:
+            update.message.reply_text(f"⚠️ User {user_id} ke liye koi key nahi mila.")
+            return
+        current_expire = datetime.datetime.strptime(user_keys[user_id]["expire_time"], "%Y-%m-%d %H:%M:%S")
+        new_expire = (current_expire + datetime.timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+        user_keys[user_id]["expire_time"] = new_expire
+        update.message.reply_text(f"✅ User {user_id} ka key {hours} hours ke liye extend ho gaya. Naya expiry: {new_expire}")
+        # Notify the user
+        try:
+            context.bot.send_message(chat_id=user_id, text=f"⏰ Tumhara key ka expiry ab {new_expire} (UTC) tak hai.")
+        except:
+            pass
+    except ValueError:
+        update.message.reply_text("⚠️ Hours ka format galat hai. Ek number daalo.")
+    except Exception as e:
+        update.message.reply_text(f"❌ Error: {str(e)}")
+
+# New Admin command: reset/delete key
+def resetkey(update, context):
+    if update.effective_user.id != ADMIN_ID:
+        update.message.reply_text("❌ Tumhe is command ko use karne ka permission nahi hai.")
+        return
+    try:
+        args = context.args
+        if len(args) != 1:
+            update.message.reply_text("⚠️ Use karne ka tarika: /resetkey <user_id>")
+            return
+        user_id = args[0]
+        if user_id not in user_keys:
+            update.message.reply_text(f"⚠️ User {user_id} ke liye koi key nahi mila.")
+            return
+        del user_keys[user_id]
+        update.message.reply_text(f"✅ User {user_id} ka key delete ho gaya.")
+        # Notify the user
+        try:
+            context.bot.send_message(chat_id=user_id, text="⚠️ Tumhara key admin ne delete kar diya. Naya key banane ke liye /getkey use karo.")
+        except:
+            pass
+    except Exception as e:
+        update.message.reply_text(f"❌ Error: {str(e)}")
 
 # Online/Offline message broadcast
 def notify_all(context, message):
@@ -66,12 +119,11 @@ def notify_all(context, message):
             pass
 
 def on_start(updater):
-    # Send Online message to all active users
-    notify_all(updater.bot, "✅ Bot is now Online!")
+    notify_all(updater.bot, "✅ Bot ab Online hai!")
 
 def on_shutdown(updater):
     try:
-        notify_all(updater.bot, "⚠️ Bot is now Offline!")
+        notify_all(updater.bot, "⚠️ Bot ab Offline hai!")
     except:
         pass
 
@@ -82,6 +134,8 @@ dp = updater.dispatcher
 dp.add_handler(CommandHandler("start", start))
 dp.add_handler(CommandHandler("getkey", getkey))
 dp.add_handler(CommandHandler("allkeys", allkeys))
+dp.add_handler(CommandHandler("extendkey", extendkey))  # Naya command
+dp.add_handler(CommandHandler("resetkey", resetkey))   # Naya command
 
 # Run online message after bot starts
 updater.job_queue.run_once(lambda ctx: on_start(updater), 1)
