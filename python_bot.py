@@ -4,7 +4,7 @@ import os, random, string, datetime, atexit, signal, sys
 # Bot Token from Environment Variable
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Admin ID (apna Telegram numeric ID daalna)
+# Admin ID (your Telegram numeric ID)
 ADMIN_ID = 1973297878
 
 # Memory-based key storage
@@ -33,9 +33,9 @@ def check_and_get_key(user_id):
 
 def getkey(update, context):
     user_id = str(update.effective_user.id)
-    active_users.add(user_id)  # add to active users
+    active_users.add(user_id)
     key_info = check_and_get_key(user_id)
-    reply = f"🔑 Your 24H Key:\n{key_info['key']}\n\n⏰ Expire At (UTC): {key_info['expire_time']}"
+    reply = f"🔑 Your 24H Key:\n{key_info['key']}\n\n⏰ Expires At (UTC): {key_info['expire_time']}"
     update.message.reply_text(reply, parse_mode="Markdown")
 
 def start(update, context):
@@ -47,83 +47,83 @@ def start(update, context):
 # Admin command: view all keys
 def allkeys(update, context):
     if update.effective_user.id != ADMIN_ID:
-        update.message.reply_text("❌ Tumhe is command ko use karne ka permission nahi hai.")
+        update.message.reply_text("❌ You are not allowed to use this command.")
         return
     if not user_keys:
-        update.message.reply_text("⚠️ Koi active keys nahi hain.")
+        update.message.reply_text("⚠️ No active keys found.")
         return
-    text = "📋 *Saare Active Keys:*\n\n"
+    text = "📋 *All Active Keys:*\n\n"
     for uid, info in user_keys.items():
         text += f"👤 User: {uid}\n🔑 {info['key']}\n⏰ {info['expire_time']}\n\n"
     update.message.reply_text(text, parse_mode="Markdown")
 
-# New Admin command: extend key duration
+# Admin command: extend key
 def extendkey(update, context):
     if update.effective_user.id != ADMIN_ID:
-        update.message.reply_text("❌ Tumhe is command ko use karne ka permission nahi hai.")
+        update.message.reply_text("❌ You are not allowed to use this command.")
         return
     try:
         args = context.args
         if len(args) != 2:
-            update.message.reply_text("⚠️ Use karne ka tarika: /extendkey <user_id> <hours>")
+            update.message.reply_text("⚠️ Usage: /extendkey <user_id> <hours>")
             return
         user_id, hours = args
         hours = int(hours)
         if user_id not in user_keys:
-            update.message.reply_text(f"⚠️ User {user_id} ke liye koi key nahi mila.")
+            update.message.reply_text(f"⚠️ No key found for user {user_id}.")
             return
         current_expire = datetime.datetime.strptime(user_keys[user_id]["expire_time"], "%Y-%m-%d %H:%M:%S")
         new_expire = (current_expire + datetime.timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
         user_keys[user_id]["expire_time"] = new_expire
-        update.message.reply_text(f"✅ User {user_id} ka key {hours} hours ke liye extend ho gaya. Naya expiry: {new_expire}")
-        # Notify the user
+        update.message.reply_text(f"✅ User {user_id}'s key extended by {hours} hours. New expiry: {new_expire}")
+        # Notify user
         try:
-            context.bot.send_message(chat_id=user_id, text=f"⏰ Tumhara key ka expiry ab {new_expire} (UTC) tak hai.")
+            context.bot.send_message(chat_id=user_id, text=f"⏰ Your key expiry has been extended until {new_expire} (UTC).")
         except:
             pass
     except ValueError:
-        update.message.reply_text("⚠️ Hours ka format galat hai. Ek number daalo.")
+        update.message.reply_text("⚠️ Hours must be a number.")
     except Exception as e:
         update.message.reply_text(f"❌ Error: {str(e)}")
 
-# New Admin command: reset/delete key
+# Admin command: reset key
 def resetkey(update, context):
     if update.effective_user.id != ADMIN_ID:
-        update.message.reply_text("❌ Tumhe is command ko use karne ka permission nahi hai.")
+        update.message.reply_text("❌ You are not allowed to use this command.")
         return
     try:
         args = context.args
         if len(args) != 1:
-            update.message.reply_text("⚠️ Use karne ka tarika: /resetkey <user_id>")
+            update.message.reply_text("⚠️ Usage: /resetkey <user_id>")
             return
         user_id = args[0]
         if user_id not in user_keys:
-            update.message.reply_text(f"⚠️ User {user_id} ke liye koi key nahi mila.")
+            update.message.reply_text(f"⚠️ No key found for user {user_id}.")
             return
         del user_keys[user_id]
-        update.message.reply_text(f"✅ User {user_id} ka key delete ho gaya.")
-        # Notify the user
+        update.message.reply_text(f"✅ User {user_id}'s key has been deleted.")
+        # Notify user
         try:
-            context.bot.send_message(chat_id=user_id, text="⚠️ Tumhara key admin ne delete kar diya. Naya key banane ke liye /getkey use karo.")
+            context.bot.send_message(chat_id=user_id, text="⚠️ Your key was reset by the admin. Use /getkey to generate a new one.")
         except:
             pass
     except Exception as e:
         update.message.reply_text(f"❌ Error: {str(e)}")
 
-# Online/Offline message broadcast
-def notify_all(context, message):
+# Broadcast messages
+def notify_all(bot, message):
     for uid in list(active_users):
         try:
-            context.bot.send_message(chat_id=uid, text=message)
+            bot.send_message(chat_id=uid, text=message)
         except:
             pass
 
 def on_start(updater):
-    notify_all(updater.bot, "✅ Bot ab Online hai!")
+    notify_all(updater.bot, "✅ Bot is now Online!")
 
 def on_shutdown(updater):
     try:
-        notify_all(updater.bot, "⚠️ Bot ab Offline hai!")
+        notify_all(updater.bot, "⚠️ Bot is now Offline!")
     except:
         pass
 
@@ -134,13 +134,13 @@ dp = updater.dispatcher
 dp.add_handler(CommandHandler("start", start))
 dp.add_handler(CommandHandler("getkey", getkey))
 dp.add_handler(CommandHandler("allkeys", allkeys))
-dp.add_handler(CommandHandler("extendkey", extendkey))  # Naya command
-dp.add_handler(CommandHandler("resetkey", resetkey))   # Naya command
+dp.add_handler(CommandHandler("extendkey", extendkey))
+dp.add_handler(CommandHandler("resetkey", resetkey))
 
-# Run online message after bot starts
+# Online message
 updater.job_queue.run_once(lambda ctx: on_start(updater), 1)
 
-# Register shutdown handler
+# Shutdown handler
 atexit.register(lambda: on_shutdown(updater))
 signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
 signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
