@@ -54,7 +54,7 @@ def allkeys(update, context):
         return
     text = "📋 *All Active Keys:*\n\n"
     for uid, info in user_keys.items():
-        text += f"👤 User: `{uid}`\n🔑 `{info['key']}`\n⏰ {info['expire_time']}\n\n"
+        text += f"👤 User: `{uid}`\n\n🔑 `{info['key']}`\n⏰ {info['expire_time']}\n\n"
     update.message.reply_text(text, parse_mode="Markdown")
 
 # Admin command: extend key
