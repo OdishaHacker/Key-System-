@@ -1,7 +1,8 @@
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import json, os, random, string, datetime
 
-BOT_TOKEN = "8455950566:AAGxLtPtssKj6KCzVUr0K8Ax7gf7QiLrDEc"
+# 🔑 BOT_TOKEN ab environment variable se aayega
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 DB_FILE = "keys.json"
 
 def load_db():
@@ -30,16 +31,15 @@ def getkey(update, context):
     reply = f"🔑 Your 24H Key:\n`{key_info['key']}`\n\n⏰ Expire At (UTC): {key_info['expire_time']}"
     update.message.reply_text(reply, parse_mode="Markdown")
 
-# 🚀 Jaise hi user /start likhe ya bot pe aae, turant key bhejo
 def start(update, context):
     update.message.reply_text("👋 Welcome to Odisha Hacker Key Bot!")
     getkey(update, context)
 
-updater = Updater(BOT_TOKEN)
+updater = Updater(BOT_TOKEN, use_context=True)
 dp = updater.dispatcher
 
-dp.add_handler(CommandHandler("start", start))   # /start → key auto milegi
-dp.add_handler(CommandHandler("getkey", getkey)) # /getkey → manually bhi le sakta hai
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(CommandHandler("getkey", getkey))
 
 updater.start_polling()
 updater.idle()
