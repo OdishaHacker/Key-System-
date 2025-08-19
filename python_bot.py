@@ -59,7 +59,7 @@ def allkeys(update, context):
 
 # Admin command: extend key
 def extendkey(update, context):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.key != user_keys:
         update.message.reply_text("❌ You are not allowed to use this command.")
         return
     try:
@@ -88,7 +88,7 @@ def extendkey(update, context):
 
 # Admin command: reset key
 def resetkey(update, context):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id != user_keys:
         update.message.reply_text("❌ You are not allowed to use this command.")
         return
     try:
