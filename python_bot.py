@@ -13,9 +13,9 @@ active_users = set()
 # Flask app
 app = Flask(__name__)
 
+# 🔹 Generate only 6-digit numeric key
 def generate_key():
-    random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    return f"ODISHA-HACKER-24H-{random_part}"
+    return ''.join(random.choices(string.digits, k=6))
 
 def check_and_get_key(user_id):
     now = datetime.datetime.utcnow()
@@ -23,6 +23,7 @@ def check_and_get_key(user_id):
         expire_time = datetime.datetime.strptime(user_keys[user_id]["expire_time"], "%Y-%m-%d %H:%M:%S")
         if expire_time > now:
             return user_keys[user_id]   # still valid
+
     # new key
     expire_time = (now + datetime.timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     user_keys[user_id] = {
