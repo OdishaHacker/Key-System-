@@ -1,5 +1,7 @@
 from telegram.ext import Updater, CommandHandler
+from flask import Flask, request, jsonify
 import os, random, string, datetime, atexit, signal, sys
+import threading
 
 # Bot Token from Environment Variable
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -11,9 +13,10 @@ ADMIN_ID = 1973297878
 user_keys = {}
 active_users = set()
 
+# ------------------ KEY GENERATION ------------------ #
 def generate_key():
-    random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    return f"ODISHA-HACKER-24H-{random_part}"
+    # Sirf 6 digit ka numeric key banega
+    return ''.join(random.choices(string.digits, k=6))
 
 def check_and_get_key(user_id):
     now = datetime.datetime.utcnow()
@@ -31,6 +34,7 @@ def check_and_get_key(user_id):
     }
     return user_keys[user_id]
 
+# ------------------ TELEGRAM BOT COMMANDS ------------------ #
 def getkey(update, context):
     user_id = str(update.effective_user.id)
     active_users.add(user_id)
@@ -76,13 +80,10 @@ def extendkey(update, context):
         new_expire = (current_expire + datetime.timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
         user_keys[user_id]["expire_time"] = new_expire
         update.message.reply_text(f"✅ User {user_id}'s key extended by {hours} hours. New expiry: {new_expire}")
-        # Notify user
         try:
             context.bot.send_message(chat_id=user_id, text=f"⏰ Your key expiry has been extended until {new_expire} (UTC).")
         except:
             pass
-    except ValueError:
-        update.message.reply_text("⚠️ Hours must be a number.")
     except Exception as e:
         update.message.reply_text(f"❌ Error: {str(e)}")
 
@@ -102,7 +103,6 @@ def resetkey(update, context):
             return
         del user_keys[user_id]
         update.message.reply_text(f"✅ User {user_id}'s key has been deleted.")
-        # Notify user
         try:
             context.bot.send_message(chat_id=user_id, text="⚠️ Your key was reset by the admin. Use /getkey to generate a new one.")
         except:
@@ -110,7 +110,7 @@ def resetkey(update, context):
     except Exception as e:
         update.message.reply_text(f"❌ Error: {str(e)}")
 
-# Broadcast messages
+# ------------------ BROADCAST ------------------ #
 def notify_all(bot, message):
     for uid in list(active_users):
         try:
@@ -127,23 +127,49 @@ def on_shutdown(updater):
     except:
         pass
 
-# Setup bot
-updater = Updater(BOT_TOKEN, use_context=True)
-dp = updater.dispatcher
+# ------------------ FLASK API FOR GAME ------------------ #
+app = Flask(__name__)
 
-dp.add_handler(CommandHandler("start", start))
-dp.add_handler(CommandHandler("getkey", getkey))
-dp.add_handler(CommandHandler("allkeys", allkeys))
-dp.add_handler(CommandHandler("extendkey", extendkey))
-dp.add_handler(CommandHandler("resetkey", resetkey))
+@app.route("/verify", methods=["POST"])
+def verify():
+    key = request.form.get("key")
+    device = request.form.get("device")
 
-# Online message
-updater.job_queue.run_once(lambda ctx: on_start(updater), 1)
+    if not key or not device:
+        return jsonify({"status": "error", "error": "Missing key or device"}), 400
 
-# Shutdown handler
-atexit.register(lambda: on_shutdown(updater))
-signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
-signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
+    for uid, info in user_keys.items():
+        if info["key"] == key:
+            expire_time = datetime.datetime.strptime(info["expire_time"], "%Y-%m-%d %H:%M:%S")
+            if expire_time > datetime.datetime.utcnow():
+                return jsonify({"status": "ok"})
+            else:
+                return jsonify({"status": "error", "error": "Key expired"}), 403
 
-updater.start_polling()
-updater.idle()
+    return jsonify({"status": "error", "error": "Invalid key"}), 403
+
+# ------------------ RUN BOTH BOT + API ------------------ #
+def run_bot():
+    updater = Updater(BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("getkey", getkey))
+    dp.add_handler(CommandHandler("allkeys", allkeys))
+    dp.add_handler(CommandHandler("extendkey", extendkey))
+    dp.add_handler(CommandHandler("resetkey", resetkey))
+
+    updater.job_queue.run_once(lambda ctx: on_start(updater), 1)
+
+    atexit.register(lambda: on_shutdown(updater))
+    signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
+    signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    # Run Telegram bot in separate thread
+    threading.Thread(target=run_bot).start()
+    # Run Flask API
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
